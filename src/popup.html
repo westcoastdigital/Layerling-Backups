@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Layerling Backup</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { width: 320px; padding: 14px; }
+  </style>
+</head>
+<body class="stack">
+  <div class="row">
+    <h1><img src="../icons/icon32.png" alt="">Layerling Backup</h1>
+    <a href="#" id="open-options" class="small">Settings</a>
+  </div>
+
+  <div class="card stack" id="status-card">
+    <div id="status-line"><span class="dot off"></span>No backups yet</div>
+    <div id="status-detail" class="small muted hidden"></div>
+  </div>
+
+  <button class="primary" id="backup-now">Back up now</button>
+  <div id="action-message" class="small hidden"></div>
+
+  <div class="card stack">
+    <div class="segmented" role="radiogroup" aria-label="Destination">
+      <label><input type="radio" name="destination" value="drive">Google Drive</label>
+      <label><input type="radio" name="destination" value="local">Local folder</label>
+    </div>
+
+    <div id="drive-row" class="row small">
+      <span id="drive-state" class="muted">Checking…</span>
+      <button id="drive-connect" class="hidden">Connect</button>
+    </div>
+
+    <div id="local-row" class="row small hidden">
+      <span id="local-state" class="muted">No folder chosen</span>
+      <button id="local-regrant" class="hidden">Re-grant access</button>
+      <button id="local-choose" class="hidden">Choose…</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div>Auto backup</div>
+        <div class="small muted">When the Layerling start page opens</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="auto-backup"><span></span></label>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

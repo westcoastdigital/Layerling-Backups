@@ -1,0 +1,46 @@
+# Push a tag like v1.2.0 → builds layerling-backup-1.2.0.zip and attaches it to a GitHub release.
+# The tag must match "version" in manifest.json.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches manifest version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST=$(jq -r .version manifest.json)
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag v$TAG does not match manifest.json version $MANIFEST"
+            exit 1
+          fi
+          if grep -q 'YOUR_WEB_CLIENT_ID' src/config.js; then
+            echo "::error::src/config.js still has the placeholder client ID"
+            exit 1
+          fi
+          echo "VERSION=$TAG" >> "$GITHUB_ENV"
+
+      - name: Build ZIP
+        run: |
+          NAME="layerling-backup-$VERSION"
+          mkdir -p "dist/$NAME"
+          cp -r manifest.json src icons README.md "dist/$NAME/"
+          [ -f LICENSE ] && cp LICENSE "dist/$NAME/"
+          cd dist && zip -rq "$NAME.zip" "$NAME"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "dist/layerling-backup-$VERSION.zip" \
+            --title "Layerling Backup $VERSION" \
+            --generate-notes

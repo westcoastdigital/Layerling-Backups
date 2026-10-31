@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "Layerling Backup",
+  "version": "1.1.0",
+  "description": "Back up your Layerling designs to Google Drive or a local folder, on demand or whenever you return to the start page.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1EKyl7lS8L6jETxqlw1nb6rbcr0Tg/PVAfKUnezNIer5yTc1Q+E30IImT/9lkzYaZcH8pCAVpVzDsMNpYbJEJo6SXi1jWHfTUrfzAdUYmhSl7nAc0ViF6nlwBS61n9qcNaEJEEnG2/NkPO3ALVlln520R6uzGZAgyuDjAT2gy5hJ5LIKwDwToLdS/m7Dbuq5nKypTPyw919Fm40ocwNuTHrwMABzUmsFQqswlik5nexd+VD6+VGjHo4gDtnUx+tczmqekifW0yVuvFRdUOBDMfnRu/hyjJ3D9nawLVyZd/PFdbLQJAfxzdPzi8m4+ZUIzU1YkLgLMD4/vplOUYayZwIDAQAB",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "storage",
+    "identity",
+    "offscreen",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://layerling.com/*",
+    "https://www.layerling.com/*",
+    "https://www.googleapis.com/*",
+    "https://oauth2.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://layerling.com/*",
+        "https://www.layerling.com/*"
+      ],
+      "js": [
+        "src/page-hook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://layerling.com/*",
+        "https://www.layerling.com/*"
+      ],
+      "js": [
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Layerling Backup",
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "options_page": "src/options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
