@@ -1,48 +1,103 @@
 # Layerling Backup
 
-Chrome extension that backs up your [Layerling](https://layerling.com) designs to Google Drive or a local folder.
+A Chrome extension that backs up your [Layerling](https://layerling.com) designs to **Google Drive** or a **folder on your computer**.
 
-- **Back up now** button in the toolbar popup.
-- **Auto backup** whenever the Layerling start page appears (first load, or coming back from the editor). By default it only runs when a design has changed since the last backup.
-- Keeps the last *N* backups (default 20); older ones are binned in Drive or deleted from the folder.
+Layerling keeps your designs in the browser. If you clear your browsing data, switch computers or the browser storage is lost, so are your designs. This extension keeps copies somewhere safe.
 
-Backups are Layerling's own "Back up all" ZIP (designs, folders, thumbnails, custom shapes), captured instead of downloaded, so **Restore backup** on the Layerling start page brings them straight back. Files are named `layerling-backup-YYYY-MM-DD-HHMMSS.zip`.
+- **Back up now:** one click in the toolbar.
+- **Auto backup:** runs whenever you open the Layerling start page, including when you leave the editor. It only backs up when something has changed.
+- **Keeps your latest backups:** 20 by default, and older ones are cleared out.
+- **Restores in Layerling:** backups are Layerling's own backup file, so **Restore backup** brings everything back, including folders, thumbnails and custom shapes.
 
-## Install (unpacked)
+Works in Chrome, Edge, Brave and other Chromium browsers.
 
-1. `chrome://extensions` → enable **Developer mode** → **Load unpacked** → pick this folder.
-2. The extension ID is fixed by the `key` in `manifest.json`: **`ojakjkpalhhcodolnlgdfljdjhhgbklc`**.
+## Install
+
+1. Open the [**latest release**](https://github.com/westcoastdigital/Layerling-Backups/releases/latest).
+2. Under **Assets**, download **`layerling-backup-<version>.zip`**. Don't download "Source code (zip)" or "Source code (tar.gz)".
+3. Unzip it somewhere you'll keep it, e.g. your Documents folder. Don't delete the folder afterwards, because the browser loads the extension from it.
+4. Open `chrome://extensions` (Edge: `edge://extensions`).
+5. Turn on **Developer mode** (top right in Chrome, left sidebar in Edge).
+6. Click **Load unpacked** and select the folder that directly contains `manifest.json`.
+   If you see "Manifest file is missing", your unzip tool added an extra folder level. Open the folder and select the one inside.
+7. Pin the extension: click the puzzle-piece icon in the toolbar, then the pin (Chrome) or eye icon (Edge) next to **Layerling Backup**.
+8. If Layerling is already open, reload the tab.
+
+## Set up
+
+Click the extension icon and choose where backups go.
+
+### Google Drive
+
+1. Choose **Google Drive** and click **Connect**.
+2. Pick your Google account and allow access.
+
+Backups go to a **Layerling Backups** folder in your Drive. The extension can only see files it creates itself, not the rest of your Drive.
+
+If Google shows a "Google hasn't verified this app" screen, click **Advanced → Go to Layerling Backup** to continue.
+
+### Local folder
+
+1. Choose **Local folder**, then click **Choose…** (or open **Settings**).
+2. Pick a folder and allow access.
+
+Tip: choosing a folder that syncs to the cloud (Google Drive for desktop, Dropbox, OneDrive) gets you a cloud copy too.
+
+## Using it
+
+- **Auto backup** is on by default. Design as normal; when you go back to Layerling's start page, a backup runs.
+- **Back up now** in the popup runs one immediately. A Layerling tab needs to be open on the start page.
+- The popup shows when the last backup ran and where it went.
+- A **!** on the toolbar icon means the last backup had a problem. Open the popup to see what happened.
+
+### Settings
+
+Click **Settings** in the popup to change:
+- Where backups go, and the Drive folder name
+- Auto backup on or off
+- Whether to back up only when something has changed
+- How many backups to keep (0 keeps everything)
+
+## Restore your designs
+
+1. Get the backup file (`layerling-backup-<date>.zip`) from your Drive folder or local folder.
+2. On the Layerling start page, click **Restore backup** and choose the file.
+
+Your designs, folders and custom shapes come back, on the same computer or a new one.
+
+## Troubleshooting
+
+**"Go to the Layerling start page to back up"**
+The editor is open. Go back to the start page and try again.
+
+**"No Layerling tab is open"**
+Open [layerling.com](https://layerling.com), then click **Back up now**.
+
+**"Reload the Layerling tab"**
+Happens after installing or updating the extension. Reload the Layerling tab once.
+
+**"Google Drive sign-in has expired"**
+Click **Connect** in the popup. This happens if you sign out of Google in your browser.
+
+**Backups going to Downloads/Layerling Backups instead of your folder**
+The browser dropped access to your chosen folder, which can happen after a restart. Click **Re-grant access** in the popup.
+
+## Update
+
+To check for a new version, open the popup's **Settings** to see your version, then compare it with the latest on the [Releases](https://github.com/westcoastdigital/Layerling-Backups/releases/latest) page. Click **Watch → Custom → Releases** on this repo to be notified.
+
+1. Download the new release ZIP and replace the files in your existing folder.
+2. In `chrome://extensions`, click the reload icon on **Layerling Backup**.
 3. Reload any open Layerling tab.
 
-`key.pem` is the matching private key. It's only needed if you ever pack a `.crx`. **Never commit it** (it's in `.gitignore`): anyone with it can run an extension with this ID and sign users in through your OAuth client. The client ID in `src/config.js` is public by design. Forks should use their own key and client ID.
+Your settings and Drive connection are kept.
 
-## Google Drive setup (publisher, one time)
+## Privacy
 
-Users just click **Connect**: Google's own window opens with the account chooser and consent screen. The client ID is baked into the build, so nobody else edits anything.
+- Your designs only go to the place you choose: your own Google Drive or your own folder.
+- Nothing is sent to the developer or anyone else. There's no server, tracking or analytics.
+- With Google Drive, the extension can only access files it created. You can remove its access at any time in **Settings → Disconnect**, or from your [Google account permissions](https://myaccount.google.com/permissions).
 
-1. [Google Cloud Console](https://console.cloud.google.com/) → create or pick a project → enable **Google Drive API**.
-2. **OAuth consent screen**: External. Add an app name, logo, support email, homepage and **privacy policy URL**. Scopes: `.../auth/drive.file`, `openid`, `email` (all non-sensitive, so no Google security review is needed).
-3. **Credentials → Create credentials → OAuth client ID → Web application**. Under **Authorized redirect URIs** add:
-   - `https://ojakjkpalhhcodolnlgdfljdjhhgbklc.chromiumapp.org/` (this unpacked build)
-   - `https://<chrome-web-store-id>.chromiumapp.org/` once published (the Web Store assigns its own ID).
-4. Put the client ID in `src/config.js` → `GOOGLE_CLIENT_ID`.
-5. While the consent screen is in **Testing**, only listed test users can connect. Click **Publish app** to make it **In production** before sharing.
+## Not affiliated
 
-Sign-in uses `chrome.identity.launchWebAuthFlow`, so it works in Chrome, Edge and Brave without a signed-in browser profile. Tokens last an hour and renew silently while the user's browser keeps its Google session. If that session ends, the badge shows `!` and the user clicks **Connect** again.
-
-## Local folder
-
-Settings → **Choose folder…**. Chrome may drop folder access after a restart; if so, backups fall back to `Downloads/Layerling Backups/` and the badge shows `!` until you click **Re-grant access**. Choosing a Google Drive for desktop (or rclone/Insync) folder gives you a cloud copy without the OAuth setup.
-
-## How it works
-
-| File | Role |
-|---|---|
-| `src/page-hook.js` | Main-world script. When armed, intercepts Layerling's `<a download="layerling-*.zip">` click and hands the ZIP over. |
-| `src/content.js` | Watches for the start page, clicks Layerling's "Back up all", streams the ZIP to the service worker in 4 MB chunks. |
-| `src/background.js` | Drive upload (resumable), retention, status/badge, auto-backup decision. |
-| `src/google-auth.js`, `src/config.js` | Google sign-in (account chooser, silent renewal) and the publisher's client ID. |
-| `src/offscreen.js` | Writes to the chosen folder (File System Access needs a window context). |
-| `src/popup.*`, `src/options.*` | UI. |
-
-Relies on Layerling's start page markup (`.dashboard-backup-button` with the `lucide-archive` icon) and `localStorage["layerling.projects"]` for change detection. If a Layerling update breaks backups, those are the first things to check.
+Layerling Backup is an independent project and is not made by or affiliated with Layerling. If a Layerling update changes its start page, backups may stop working until this extension is updated.
