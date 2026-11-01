@@ -58,11 +58,12 @@ async function renderDestination() {
   const settings = await getSettings();
   document.querySelector(`input[name="destination"][value="${settings.destination}"]`).checked = true;
   $("auto-backup").checked = settings.autoBackup;
-  const isDrive = settings.destination === "drive";
-  $("drive-row").classList.toggle("hidden", !isDrive);
-  $("local-row").classList.toggle("hidden", isDrive);
+  const useDrive = settings.destination !== "local";
+  const useLocal = settings.destination !== "drive";
+  $("drive-row").classList.toggle("hidden", !useDrive);
+  $("local-row").classList.toggle("hidden", !useLocal);
 
-  if (isDrive) {
+  if (useDrive) {
     const drive = await send("drive-status").catch(() => ({ connected: false }));
     $("drive-state").innerHTML = "";
     const dot = document.createElement("span");
@@ -70,7 +71,8 @@ async function renderDestination() {
     $("drive-state").append(dot, drive.connected ? drive.email ?? "Connected" : "Not connected");
     $("drive-state").title = drive.connected ? `Backing up to ${settings.driveFolderName}` : "";
     $("drive-connect").classList.toggle("hidden", drive.connected);
-  } else {
+  }
+  if (useLocal) {
     const handle = await getDirHandle();
     const permission = await dirPermission(handle);
     $("local-state").innerHTML = "";

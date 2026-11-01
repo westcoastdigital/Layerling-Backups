@@ -1,10 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Layerling Backup",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Back up your Layerling designs to Google Drive or a local folder, on demand or whenever you return to the start page.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1EKyl7lS8L6jETxqlw1nb6rbcr0Tg/PVAfKUnezNIer5yTc1Q+E30IImT/9lkzYaZcH8pCAVpVzDsMNpYbJEJo6SXi1jWHfTUrfzAdUYmhSl7nAc0ViF6nlwBS61n9qcNaEJEEnG2/NkPO3ALVlln520R6uzGZAgyuDjAT2gy5hJ5LIKwDwToLdS/m7Dbuq5nKypTPyw919Fm40ocwNuTHrwMABzUmsFQqswlik5nexd+VD6+VGjHo4gDtnUx+tczmqekifW0yVuvFRdUOBDMfnRu/hyjJ3D9nawLVyZd/PFdbLQJAfxzdPzi8m4+ZUIzU1YkLgLMD4/vplOUYayZwIDAQAB",
-  "minimum_chrome_version": "116",
   "permissions": [
     "storage",
     "identity",
@@ -39,6 +38,7 @@
         "https://www.layerling.com/*"
       ],
       "js": [
+        "src/toast.js",
         "src/content.js"
       ],
       "run_at": "document_idle"

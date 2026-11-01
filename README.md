@@ -5,6 +5,8 @@ A Chrome extension that backs up your [Layerling](https://layerling.com) designs
 Layerling keeps your designs in the browser. If you clear your browsing data, switch computers or the browser storage is lost, so are your designs. This extension keeps copies somewhere safe.
 
 - **Back up now:** one click in the toolbar.
+- **Drive, a folder, or both:** keep a copy in the cloud and on your computer.
+- **On-page notification:** a small message in the top right of Layerling confirms each backup.
 - **Auto backup:** runs whenever you open the Layerling start page, including when you leave the editor. It only backs up when something has changed.
 - **Keeps your latest backups:** 20 by default, and older ones are cleared out.
 - **Restores in Layerling:** backups are Layerling's own backup file, so **Restore backup** brings everything back, including folders, thumbnails and custom shapes.
@@ -23,9 +25,29 @@ Works in Chrome, Edge, Brave and other Chromium browsers.
 7. Pin the extension: click the puzzle-piece icon in the toolbar, then the pin (Chrome) or eye icon (Edge) next to **Layerling Backup**.
 8. If Layerling is already open, reload the tab.
 
+## How to update
+
+Extensions installed this way don't update themselves, so check for new versions now and then.
+
+**Know when there's a new version:** at the top of this repo, click **Watch → Custom**, tick **Releases**, then **Apply**. GitHub emails you when a new version is released.
+
+**Check your version:** open the extension's **Settings**; your version is at the bottom. Compare it with the [latest release](https://github.com/westcoastdigital/Layerling-Backups/releases/latest).
+
+**To update:**
+
+1. Download the new `layerling-backup-<version>.zip` from the [latest release](https://github.com/westcoastdigital/Layerling-Backups/releases/latest).
+2. Unzip it.
+3. Copy the new files **into your existing extension folder**, replacing the old ones. Use the same folder you picked when installing.
+4. Open `chrome://extensions` (Edge: `edge://extensions`) and click the **reload** icon (↻) on **Layerling Backup**.
+5. Reload any open Layerling tab.
+
+Your settings, backup history and Google Drive connection are kept.
+
+Don't click **Remove** to update. Removing the extension deletes its settings, so you'd need to set it up and connect Google Drive again. Your existing backups are not affected.
+
 ## Set up
 
-Click the extension icon and choose where backups go.
+Click the extension icon and choose where backups go: **Drive**, **Folder**, or **Both**. With Both, every backup is saved to Google Drive and to your folder, and if one fails the other is still kept.
 
 ### Google Drive
 
@@ -53,9 +75,10 @@ Tip: choosing a folder that syncs to the cloud (Google Drive for desktop, Dropbo
 ### Settings
 
 Click **Settings** in the popup to change:
-- Where backups go, and the Drive folder name
+- Where backups go (Drive, Folder or Both), and the Drive folder name
 - Auto backup on or off
 - Whether to back up only when something has changed
+- Whether to show the notification on the Layerling page
 - How many backups to keep (0 keeps everything)
 
 ## Restore your designs
@@ -81,16 +104,6 @@ Click **Connect** in the popup. This happens if you sign out of Google in your b
 
 **Backups going to Downloads/Layerling Backups instead of your folder**
 The browser dropped access to your chosen folder, which can happen after a restart. Click **Re-grant access** in the popup.
-
-## Update
-
-To check for a new version, open the popup's **Settings** to see your version, then compare it with the latest on the [Releases](https://github.com/westcoastdigital/Layerling-Backups/releases/latest) page. Click **Watch → Custom → Releases** on this repo to be notified.
-
-1. Download the new release ZIP and replace the files in your existing folder.
-2. In `chrome://extensions`, click the reload icon on **Layerling Backup**.
-3. Reload any open Layerling tab.
-
-Your settings and Drive connection are kept.
 
 ## Privacy
 

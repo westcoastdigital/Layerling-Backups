@@ -18,7 +18,9 @@
     <div class="segmented" role="radiogroup" aria-label="Destination">
       <label><input type="radio" name="destination" value="drive">Google Drive</label>
       <label><input type="radio" name="destination" value="local">Local folder</label>
+      <label><input type="radio" name="destination" value="both">Both</label>
     </div>
+    <span class="small muted">With Both, each backup is saved to Drive and to your folder. If one fails, the other is still kept.</span>
   </section>
 
   <section class="card stack" id="drive-section">
@@ -53,7 +55,8 @@
   <section class="card stack">
     <h2>Automatic backup</h2>
     <label class="inline"><input type="checkbox" id="auto-backup"> Back up whenever the Layerling start page opens</label>
-    <label class="inline"><input type="checkbox" id="only-changed"> Only when a design has changed since the last backup</label>
+    <label class="inline"><input type="checkbox" id="only-changed"> Only when something has changed since the last backup</label>
+    <label class="inline"><input type="checkbox" id="show-toast"> Show a notification on the Layerling page after each backup</label>
     <div class="field">
       <label for="keep-count">Backups to keep</label>
       <input type="number" id="keep-count" min="0" max="999" style="width: 90px">

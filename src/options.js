@@ -43,8 +43,8 @@ async function renderLocal() {
 }
 
 function renderSections(destination) {
-  $("drive-section").style.opacity = destination === "drive" ? "1" : "0.6";
-  $("local-section").style.opacity = destination === "local" ? "1" : "0.6";
+  $("drive-section").style.opacity = destination !== "local" ? "1" : "0.6";
+  $("local-section").style.opacity = destination !== "drive" ? "1" : "0.6";
 }
 
 async function init() {
@@ -54,6 +54,7 @@ async function init() {
   $("drive-folder").value = settings.driveFolderName;
   $("auto-backup").checked = settings.autoBackup;
   $("only-changed").checked = settings.onlyWhenChanged;
+  $("show-toast").checked = settings.showToast;
   $("keep-count").value = settings.keepCount;
   renderSections(settings.destination);
   renderDrive();
@@ -74,6 +75,7 @@ $("drive-folder").addEventListener("change", (event) => {
 });
 $("auto-backup").addEventListener("change", (event) => save({ autoBackup: event.target.checked }));
 $("only-changed").addEventListener("change", (event) => save({ onlyWhenChanged: event.target.checked }));
+$("show-toast").addEventListener("change", (event) => save({ showToast: event.target.checked }));
 $("keep-count").addEventListener("change", (event) => {
   const keep = Math.max(0, Math.min(999, Number.parseInt(event.target.value, 10) || 0));
   event.target.value = keep;

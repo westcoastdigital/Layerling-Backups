@@ -1,8 +1,9 @@
 // Shared by the service worker, offscreen document, popup and options page.
 
 export const DEFAULTS = {
-  destination: "drive", // "drive" | "local"
+  destination: "drive", // "drive" | "local" | "both"
   autoBackup: true,
+  showToast: true,
   onlyWhenChanged: true,
   keepCount: 20, // 0 = keep every backup
   driveFolderName: "Layerling Backups",

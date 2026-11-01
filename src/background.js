@@ -187,17 +187,43 @@ async function runBackup(chunks, meta) {
   jobRunning = true;
   const settings = await getSettings();
   const fileName = backupFileName();
+  const targets = settings.destination === "both" ? ["drive", "local"] : [settings.destination];
   try {
-    let result;
-    if (settings.destination === "drive") {
-      const parts = chunks.map(base64ToBytes);
-      const bytes = new Blob(parts, { type: "application/zip" });
-      result = await uploadToDrive(bytes, fileName, settings);
-    } else {
-      result = await saveLocally(chunks, fileName, settings);
+    const done = [];
+    const failed = [];
+    for (const target of targets) {
+      try {
+        if (target === "drive") {
+          const bytes = new Blob(chunks.map(base64ToBytes), { type: "application/zip" });
+          done.push(await uploadToDrive(bytes, fileName, settings));
+        } else {
+          done.push(await saveLocally(chunks, fileName, settings));
+        }
+      } catch (error) {
+        failed.push(`${target === "drive" ? "Google Drive" : "Local folder"}: ${error.message}`);
+      }
     }
-    await chrome.storage.local.set({ lastSignature: `${settings.destination}:${meta.signature}` });
-    const status = { ok: true, trigger: meta.trigger, destination: settings.destination, fileName, size: meta.size, ...result };
+    if (!done.length) throw new Error(failed.join(" · "));
+
+    const warnings = [...done.map((result) => result.warning), ...failed.map((message) => `Not saved to ${message}`)];
+    if (meta.missing > 0) {
+      warnings.push(`${meta.missing} design${meta.missing === 1 ? "" : "s"} could not be read by Layerling and ${meta.missing === 1 ? "is" : "are"} missing from this backup. Open ${meta.missing === 1 ? "it" : "them"} in Layerling to check.`);
+    }
+    // A partial backup is retried next time, not marked as up to date.
+    if (!failed.length && !(meta.missing > 0)) {
+      await chrome.storage.local.set({ lastSignature: `${settings.destination}:${meta.signature}` });
+    }
+    const drive = done.find((result) => result.link);
+    const status = {
+      ok: true,
+      trigger: meta.trigger,
+      destination: settings.destination,
+      fileName,
+      size: meta.size,
+      location: done.map((result) => result.location).join(" + "),
+      link: drive?.link,
+      warning: warnings.filter(Boolean).join(" ") || undefined,
+    };
     await setStatus(status);
     return status;
   } catch (error) {
@@ -236,7 +262,7 @@ chrome.runtime.onConnect.addListener((port) => {
 async function autoCheck({ count, signature }) {
   const settings = await getSettings();
   if (!settings.autoBackup) return { run: false, reason: "auto backup is off" };
-  if (!count) return { run: false, reason: "no designs" };
+  if (!count) return { run: false, reason: "nothing to back up" };
   if (jobRunning) return { run: false, reason: "busy" };
   if (settings.onlyWhenChanged) {
     const { lastSignature } = await chrome.storage.local.get("lastSignature");
@@ -248,7 +274,7 @@ async function autoCheck({ count, signature }) {
 async function backupNow() {
   // Sign in first if needed. Runs here, not in the popup, because the popup closes when Google's window opens.
   const settings = await getSettings();
-  if (settings.destination === "drive" && !(await accountStatus()).connected) await driveConnect();
+  if (settings.destination !== "local" && !(await accountStatus()).connected) await driveConnect();
   const tabs = await chrome.tabs.query({ url: LAYERLING_TABS });
   if (!tabs.length) throw new Error("No Layerling tab is open. Open layerling.com and try again.");
   // Prefer the active tab, then any other.

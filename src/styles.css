@@ -55,7 +55,7 @@ button, .button {
 button:hover, .button:hover { border-color: var(--accent); }
 button:disabled { opacity: 0.55; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; width: 100%; padding: 9px; }
-.segmented { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .segmented label { text-align: center; padding: 6px; cursor: pointer; }
 .segmented input { display: none; }
 .segmented label:has(input:checked) { background: var(--accent); color: var(--accent-text); font-weight: 600; }
