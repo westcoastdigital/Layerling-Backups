@@ -2,7 +2,7 @@
 // Fades in, waits, then slides up while fading out. Hovering keeps it open.
 // Lives in a shadow root so Layerling's styles and ours never mix.
 
-const TOAST_TIMES = { ok: 3500, warn: 7000, error: 8000 };
+const TOAST_TIMES = { ok: 3500, warn: 7000, error: 8000, info: 1800 };
 
 const TOAST_CSS = `
   :host { all: initial; }
@@ -28,6 +28,7 @@ const TOAST_CSS = `
   .ok .icon { background: #5cc28a; }
   .warn .icon { background: #f0b04a; }
   .error .icon { background: #ef6b5b; }
+  .info .icon { background: #e8a33d; }
   .body { min-width: 0; flex: 1; }
   .title { font-weight: 600; }
   .detail { color: #c9b9a4; font-size: 12px; margin-top: 2px; overflow-wrap: anywhere; }
@@ -48,13 +49,16 @@ function ensureToastHost() {
   return root;
 }
 
-async function showToast({ kind = "ok", title, detail }) {
-  try {
-    const { showToast: enabled = true } = await chrome.storage.sync.get("showToast");
-    if (!enabled) return;
-  } catch {
-    // Extension reloaded under the page: skip.
-    return;
+// `always`: feedback for a key the user just pressed, shown even with backup notifications turned off.
+async function showToast({ kind = "ok", title, detail, always = false }) {
+  if (!always) {
+    try {
+      const { showToast: enabled = true } = await chrome.storage.sync.get("showToast");
+      if (!enabled) return;
+    } catch {
+      // Extension reloaded under the page: skip.
+      return;
+    }
   }
 
   const root = ensureToastHost();
@@ -66,7 +70,7 @@ async function showToast({ kind = "ok", title, detail }) {
 
   const icon = document.createElement("div");
   icon.className = "icon";
-  icon.textContent = kind === "ok" ? "✓" : "!";
+  icon.textContent = kind === "ok" ? "✓" : kind === "info" ? "i" : "!";
 
   const body = document.createElement("div");
   body.className = "body";
