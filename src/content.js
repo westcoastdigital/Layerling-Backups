@@ -1,4 +1,4 @@
-// Isolated content script on layerling.com.
+// Isolated content script on layerling.com and a local (Docker) Layerling on port 3000.
 // - Watches for the start page appearing (first load, or coming back from the editor) and asks
 //   the extension whether an automatic backup is due.
 // - Runs a backup by clicking Layerling's own "Back up all" button, so the file is exactly what
@@ -25,6 +25,13 @@ function findBackupButton() {
   // Several dashboard buttons share .dashboard-backup-button; "Back up all" is the one with the Archive icon.
   const icon = document.querySelector(".dashboard-backup-button svg.lucide-archive");
   return icon ? icon.closest("button") : null;
+}
+
+// Self-hosted Layerling with a server folder: on the server tab, "Back up all" downloads the server's
+// designs instead of this browser's, which the change check and design count don't describe.
+// That tab is the one whose toolbar has the Refresh (RefreshCw) button.
+function onServerSection() {
+  return Boolean(document.querySelector(".dashboard-backup-button svg.lucide-refresh-cw"));
 }
 
 function readJsonArray(key) {
@@ -188,7 +195,7 @@ async function sendToExtension(blob, signature, trigger, missing) {
     port.onDisconnect.addListener(() => reject(new Error("The extension stopped before the backup finished.")));
   });
 
-  port.postMessage({ type: "start", size: blob.size, signature, trigger, missing });
+  port.postMessage({ type: "start", size: blob.size, signature, trigger, missing, origin: location.origin });
   for (let offset = 0; offset < blob.size; offset += CHUNK_SIZE) {
     port.postMessage({ type: "chunk", data: await blobToBase64(blob.slice(offset, offset + CHUNK_SIZE)) });
   }
@@ -200,9 +207,13 @@ async function runBackup(trigger) {
   if (busy) throw new Error("A backup is already running.");
   busy = true;
   try {
+    if (onServerSection()) {
+      if (trigger === "auto") return { skipped: "server tab open" };
+      throw new Error("Switch to the browser designs tab to back up. Designs on the server tab are already stored on the server.");
+    }
     const { designs, shapes, signature } = await projectState();
     if (trigger === "auto") {
-      const response = await chrome.runtime.sendMessage({ type: "auto-check", count: designs + shapes, signature });
+      const response = await chrome.runtime.sendMessage({ type: "auto-check", count: designs + shapes, signature, origin: location.origin });
       const decision = response?.result;
       if (!decision?.run) return { skipped: decision?.reason ?? "skipped" };
     } else if (!designs && !shapes) {

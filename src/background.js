@@ -1,12 +1,23 @@
 import { getSettings, backupFileName, base64ToBytes, BACKUP_FILE_PATTERN, FALLBACK_DOWNLOAD_FOLDER } from "./shared.js";
 import { connect, getAccessToken, invalidateToken, disconnect, accountStatus } from "./google-auth.js";
 
-const LAYERLING_TABS = ["https://layerling.com/*", "https://www.layerling.com/*"];
+const LAYERLING_TABS = ["https://layerling.com/*", "https://www.layerling.com/*", "http://localhost:3000/*", "http://127.0.0.1:3000/*"];
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 
 let jobRunning = false;
+
+// Each Layerling origin (layerling.com, a local Docker copy) has its own designs, so "unchanged" is tracked per origin.
+async function getLastSignature(origin) {
+  const { lastSignatures } = await chrome.storage.local.get("lastSignatures");
+  return lastSignatures?.[origin ?? ""];
+}
+
+async function setLastSignature(origin, value) {
+  const { lastSignatures } = await chrome.storage.local.get("lastSignatures");
+  await chrome.storage.local.set({ lastSignatures: { ...(lastSignatures ?? {}), [origin ?? ""]: value } });
+}
 
 // ---------------------------------------------------------------- status + badge
 
@@ -211,7 +222,7 @@ async function runBackup(chunks, meta) {
     }
     // A partial backup is retried next time, not marked as up to date.
     if (!failed.length && !(meta.missing > 0)) {
-      await chrome.storage.local.set({ lastSignature: `${settings.destination}:${meta.signature}` });
+      await setLastSignature(meta.origin, `${settings.destination}:${meta.signature}`);
     }
     const drive = done.find((result) => result.link);
     const status = {
@@ -259,14 +270,13 @@ chrome.runtime.onConnect.addListener((port) => {
 
 // ---------------------------------------------------------------- messages from popup / options / content
 
-async function autoCheck({ count, signature }) {
+async function autoCheck({ count, signature, origin }) {
   const settings = await getSettings();
   if (!settings.autoBackup) return { run: false, reason: "auto backup is off" };
   if (!count) return { run: false, reason: "nothing to back up" };
   if (jobRunning) return { run: false, reason: "busy" };
   if (settings.onlyWhenChanged) {
-    const { lastSignature } = await chrome.storage.local.get("lastSignature");
-    if (lastSignature === `${settings.destination}:${signature}`) return { run: false, reason: "unchanged" };
+    if ((await getLastSignature(origin)) === `${settings.destination}:${signature}`) return { run: false, reason: "unchanged" };
   }
   return { run: true };
 }
@@ -276,7 +286,7 @@ async function backupNow() {
   const settings = await getSettings();
   if (settings.destination !== "local" && !(await accountStatus()).connected) await driveConnect();
   const tabs = await chrome.tabs.query({ url: LAYERLING_TABS });
-  if (!tabs.length) throw new Error("No Layerling tab is open. Open layerling.com and try again.");
+  if (!tabs.length) throw new Error("No Layerling tab is open. Open layerling.com (or your local copy on localhost:3000) and try again.");
   // Prefer the active tab, then any other.
   tabs.sort((a, b) => Number(b.active) - Number(a.active));
   let lastError = null;
@@ -299,7 +309,7 @@ async function backupNow() {
 async function driveConnect() {
   const { email } = await connect();
   // A different account has its own folder.
-  await chrome.storage.local.remove(["driveFolderId", "driveFolderName", "lastSignature"]);
+  await chrome.storage.local.remove(["driveFolderId", "driveFolderName", "lastSignature", "lastSignatures"]);
   const settings = await getSettings();
   await ensureDriveFolder(settings.driveFolderName);
   return { connected: true, email };

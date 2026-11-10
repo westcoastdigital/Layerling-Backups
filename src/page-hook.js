@@ -6,6 +6,20 @@
   const BACKUP_NAME = /^layerling-.*\.zip$/i;
   const originalClick = HTMLAnchorElement.prototype.click;
 
+  // Layerling 1.15x+ asks for a save location with showSaveFilePicker in Chrome/Edge before falling back
+  // to the <a download> click. While a capture is armed, refuse the picker (a non-Abort error makes
+  // Layerling fall back to the download), so an auto backup never pops a Save dialog and the ZIP still
+  // reaches the click hook below. Any other picker use goes through untouched.
+  if (typeof window.showSaveFilePicker === "function") {
+    const originalPicker = window.showSaveFilePicker;
+    window.showSaveFilePicker = function (options, ...rest) {
+      if (document.documentElement.hasAttribute(ARM_ATTR) && options?.id === "layerling-backups") {
+        return Promise.reject(new DOMException("Captured by Layerling Backup", "NotAllowedError"));
+      }
+      return originalPicker.call(this, options, ...rest);
+    };
+  }
+
   HTMLAnchorElement.prototype.click = function (...args) {
     const root = document.documentElement;
     const isBackup = root.hasAttribute(ARM_ATTR) && this.href.startsWith("blob:") && BACKUP_NAME.test(this.download || "");
