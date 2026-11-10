@@ -1,12 +1,40 @@
-import { getSettings, backupFileName, base64ToBytes, BACKUP_FILE_PATTERN, FALLBACK_DOWNLOAD_FOLDER } from "./shared.js";
+import { getSettings, backupFileName, base64ToBytes, BACKUP_FILE_PATTERN, FALLBACK_DOWNLOAD_FOLDER, SELF_HOSTED_KEY, grantedSelfHostedOrigins, layerlingTabPatterns, originPattern } from "./shared.js";
 import { connect, getAccessToken, invalidateToken, disconnect, accountStatus } from "./google-auth.js";
 
-const LAYERLING_TABS = ["https://layerling.com/*", "https://www.layerling.com/*", "http://localhost:3000/*", "http://127.0.0.1:3000/*"];
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 
 let jobRunning = false;
+
+// ---------------------------------------------------------------- self-hosted Layerling
+
+// The manifest's content scripts cover layerling.com. Self-hosted addresses get the same scripts
+// registered at runtime, for the origins the user added in Settings and granted access to.
+const SELF_HOSTED_SCRIPT_IDS = ["llb-self-hosted-hook", "llb-self-hosted-content"];
+let syncingScripts = Promise.resolve();
+
+function syncSelfHostedScripts() {
+  syncingScripts = syncingScripts.then(async () => {
+    const matches = (await grantedSelfHostedOrigins()).map(originPattern);
+    const registered = await chrome.scripting.getRegisteredContentScripts({ ids: SELF_HOSTED_SCRIPT_IDS });
+    if (registered.length) await chrome.scripting.unregisterContentScripts({ ids: registered.map((script) => script.id) });
+    if (!matches.length) return;
+    await chrome.scripting.registerContentScripts([
+      { id: SELF_HOSTED_SCRIPT_IDS[0], matches, js: ["src/page-hook.js"], runAt: "document_start", world: "MAIN" },
+      { id: SELF_HOSTED_SCRIPT_IDS[1], matches, js: ["src/toast.js", "src/dimensions.js", "src/content.js"], runAt: "document_idle" },
+    ]);
+  }).catch((error) => console.error("Layerling Backup: registering self-hosted scripts failed", error));
+  return syncingScripts;
+}
+
+chrome.runtime.onInstalled.addListener(() => syncSelfHostedScripts());
+chrome.runtime.onStartup.addListener(() => syncSelfHostedScripts());
+chrome.permissions.onAdded.addListener(() => syncSelfHostedScripts());
+chrome.permissions.onRemoved.addListener(() => syncSelfHostedScripts());
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync" && SELF_HOSTED_KEY in changes) syncSelfHostedScripts();
+});
 
 // Each Layerling origin (layerling.com, a local Docker copy) has its own designs, so "unchanged" is tracked per origin.
 async function getLastSignature(origin) {
@@ -285,8 +313,8 @@ async function backupNow() {
   // Sign in first if needed. Runs here, not in the popup, because the popup closes when Google's window opens.
   const settings = await getSettings();
   if (settings.destination !== "local" && !(await accountStatus()).connected) await driveConnect();
-  const tabs = await chrome.tabs.query({ url: LAYERLING_TABS });
-  if (!tabs.length) throw new Error("No Layerling tab is open. Open layerling.com (or your local copy on localhost:3000) and try again.");
+  const tabs = await chrome.tabs.query({ url: await layerlingTabPatterns() });
+  if (!tabs.length) throw new Error("No Layerling tab is open. Open layerling.com (or your self-hosted address from Settings) and try again.");
   // Prefer the active tab, then any other.
   tabs.sort((a, b) => Number(b.active) - Number(a.active));
   let lastError = null;
@@ -335,6 +363,7 @@ const handlers = {
   "drive-connect": driveConnect,
   "drive-disconnect": driveDisconnect,
   "drive-status": driveStatus,
+  "sync-self-hosted": () => syncSelfHostedScripts().then(() => ({})),
   "clear-status": () => chrome.action.setBadgeText({ text: "" }).then(() => ({})),
 };
 

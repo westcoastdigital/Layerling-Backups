@@ -65,6 +65,16 @@ If Google shows a "Google hasn't verified this app" screen, click **Advanced →
 
 Tip: choosing a folder that syncs to the cloud (Google Drive for desktop, Dropbox, OneDrive) gets you a cloud copy too.
 
+### Self-hosted Layerling
+
+layerling.com works straight away. If you run Layerling yourself (Docker, a NAS, your own domain):
+
+1. Open **Settings → Self-hosted Layerling**.
+2. Enter its address, e.g. `localhost:3000`, `192.168.1.50:3000` or `https://cad.example.com`, and click **Add**.
+3. Allow access when Chrome asks, then reload any Layerling tab already open at that address.
+
+Each address keeps its own "only when changed" check, so designs on layerling.com and on your own copy are backed up separately.
+
 ## Using it
 
 - **Auto backup** is on by default. Design as normal; when you go back to Layerling's start page, a backup runs.

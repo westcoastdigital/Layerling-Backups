@@ -87,3 +87,41 @@ export async function dirPermission(handle) {
     return "prompt";
   }
 }
+// --- Self-hosted Layerling addresses (Docker, NAS, own domain). Granted one by one as optional host permissions. ---
+
+export const CLOUD_PATTERNS = ["https://layerling.com/*", "https://www.layerling.com/*"];
+export const SELF_HOSTED_KEY = "selfHostedOrigins";
+
+/** "192.168.1.50:3000", "http://localhost:8080/", "https://cad.example.com/x" → its origin, or null. */
+export function normalizeOrigin(input) {
+  let text = String(input ?? "").trim();
+  if (!text) return null;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) text = `http://${text}`;
+  try {
+    const url = new URL(text);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    if (/(^|\.)layerling\.com$/i.test(url.hostname)) return null; // always supported
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+export const originPattern = (origin) => `${origin}/*`;
+
+export async function getSelfHostedOrigins() {
+  const stored = (await chrome.storage.sync.get(SELF_HOSTED_KEY))[SELF_HOSTED_KEY];
+  return Array.isArray(stored) ? stored : [];
+}
+
+/** Self-hosted origins the browser currently allows the extension on. */
+export async function grantedSelfHostedOrigins() {
+  const origins = await getSelfHostedOrigins();
+  const granted = await Promise.all(origins.map((origin) => chrome.permissions.contains({ origins: [originPattern(origin)] })));
+  return origins.filter((_, index) => granted[index]);
+}
+
+/** Every URL pattern a Layerling tab can be on: the cloud plus the granted self-hosted addresses. */
+export async function layerlingTabPatterns() {
+  return [...CLOUD_PATTERNS, ...(await grantedSelfHostedOrigins()).map(originPattern)];
+}

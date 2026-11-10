@@ -65,6 +65,18 @@
   </section>
 
   <section class="card stack">
+    <h2>Self-hosted Layerling</h2>
+    <span class="small muted">layerling.com works out of the box. If you run Layerling yourself (Docker, a NAS, your own domain), add its address here.</span>
+    <div id="hosts" class="stack"></div>
+    <div class="row">
+      <input type="text" id="host-input" placeholder="e.g. localhost:3000 or 192.168.1.50:3000" style="flex: 1">
+      <button id="host-add">Add</button>
+    </div>
+    <span id="host-error" class="small status-err hidden"></span>
+    <span class="small muted">Chrome asks once to allow access to that address. Reload any Layerling tab already open there.</span>
+  </section>
+
+  <section class="card stack">
     <h2>Keyboard shortcut</h2>
     <div><b>Shift+Q</b> in Layerling hides or shows the transform numbers: the sizes beside a selected shape and the dimensions in sketch mode. It stays that way until you press it again.</div>
   </section>

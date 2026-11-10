@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Layerling Backup",
-  "version": "1.4.0",
+  "version": "1.6.0",
   "description": "Back up your Layerling designs to Google Drive or a local folder, on demand or whenever you return to the start page.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1EKyl7lS8L6jETxqlw1nb6rbcr0Tg/PVAfKUnezNIer5yTc1Q+E30IImT/9lkzYaZcH8pCAVpVzDsMNpYbJEJo6SXi1jWHfTUrfzAdUYmhSl7nAc0ViF6nlwBS61n9qcNaEJEEnG2/NkPO3ALVlln520R6uzGZAgyuDjAT2gy5hJ5LIKwDwToLdS/m7Dbuq5nKypTPyw919Fm40ocwNuTHrwMABzUmsFQqswlik5nexd+VD6+VGjHo4gDtnUx+tczmqekifW0yVuvFRdUOBDMfnRu/hyjJ3D9nawLVyZd/PFdbLQJAfxzdPzi8m4+ZUIzU1YkLgLMD4/vplOUYayZwIDAQAB",
   "minimum_chrome_version": "116",
@@ -9,15 +9,18 @@
     "storage",
     "identity",
     "offscreen",
-    "downloads"
+    "downloads",
+    "scripting"
   ],
   "host_permissions": [
     "https://layerling.com/*",
     "https://www.layerling.com/*",
-    "http://localhost:3000/*",
-    "http://127.0.0.1:3000/*",
     "https://www.googleapis.com/*",
     "https://oauth2.googleapis.com/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "src/background.js",
@@ -27,9 +30,7 @@
     {
       "matches": [
         "https://layerling.com/*",
-        "https://www.layerling.com/*",
-        "http://localhost:3000/*",
-        "http://127.0.0.1:3000/*"
+        "https://www.layerling.com/*"
       ],
       "js": [
         "src/page-hook.js"
@@ -40,9 +41,7 @@
     {
       "matches": [
         "https://layerling.com/*",
-        "https://www.layerling.com/*",
-        "http://localhost:3000/*",
-        "http://127.0.0.1:3000/*"
+        "https://www.layerling.com/*"
       ],
       "js": [
         "src/toast.js",

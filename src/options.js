@@ -1,4 +1,4 @@
-import { getSettings, getDirHandle, setDirHandle, dirPermission } from "./shared.js";
+import { getSettings, getDirHandle, setDirHandle, dirPermission, SELF_HOSTED_KEY, getSelfHostedOrigins, normalizeOrigin, originPattern } from "./shared.js";
 
 const $ = (id) => document.getElementById(id);
 let savedTimer = null;
@@ -47,6 +47,85 @@ function renderSections(destination) {
   $("local-section").style.opacity = destination !== "drive" ? "1" : "0.6";
 }
 
+// ---------------------------------------------------------------- self-hosted addresses
+
+function hostError(message) {
+  $("host-error").textContent = message ?? "";
+  $("host-error").classList.toggle("hidden", !message);
+}
+
+async function renderHosts() {
+  const list = $("hosts");
+  list.innerHTML = "";
+  for (const origin of await getSelfHostedOrigins()) {
+    const granted = await chrome.permissions.contains({ origins: [originPattern(origin)] });
+    const row = document.createElement("div");
+    row.className = "row";
+    const state = document.createElement("span");
+    setState(state, granted ? "ok" : "warn", granted ? origin : `${origin} (access needed)`);
+    const actions = document.createElement("span");
+    if (!granted) {
+      const grant = document.createElement("button");
+      grant.textContent = "Allow access";
+      grant.addEventListener("click", () => grantHost(origin));
+      actions.append(grant, " ");
+    }
+    const remove = document.createElement("button");
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => removeHost(origin));
+    actions.append(remove);
+    row.append(state, actions);
+    list.append(row);
+  }
+}
+
+// Called straight from a click: Chrome only shows the permission prompt during a user gesture.
+async function grantHost(origin) {
+  hostError();
+  try {
+    const granted = await chrome.permissions.request({ origins: [originPattern(origin)] });
+    if (!granted) hostError(`Access to ${origin} wasn't allowed, so backups won't run there.`);
+  } catch (error) {
+    hostError(error.message);
+  }
+  await send("sync-self-hosted").catch(() => {});
+  renderHosts();
+}
+
+async function addHost() {
+  hostError();
+  const raw = $("host-input").value;
+  const origin = normalizeOrigin(raw);
+  if (!origin) {
+    hostError(/layerling\.com/i.test(raw) ? "layerling.com is always supported, no need to add it." : "Enter an address like localhost:3000, 192.168.1.50:3000 or https://cad.example.com.");
+    return;
+  }
+  const permission = chrome.permissions.request({ origins: [originPattern(origin)] }); // before any await
+  const origins = await getSelfHostedOrigins();
+  if (!origins.includes(origin)) await save({ [SELF_HOSTED_KEY]: [...origins, origin] });
+  $("host-input").value = "";
+  try {
+    if (!(await permission)) hostError(`Access to ${origin} wasn't allowed. Click "Allow access" to try again.`);
+  } catch (error) {
+    hostError(error.message);
+  }
+  await send("sync-self-hosted").catch(() => {});
+  renderHosts();
+}
+
+async function removeHost(origin) {
+  hostError();
+  await save({ [SELF_HOSTED_KEY]: (await getSelfHostedOrigins()).filter((entry) => entry !== origin) });
+  await chrome.permissions.remove({ origins: [originPattern(origin)] }).catch(() => {});
+  await send("sync-self-hosted").catch(() => {});
+  renderHosts();
+}
+
+$("host-add").addEventListener("click", addHost);
+$("host-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") addHost();
+});
+
 async function init() {
   $("version").textContent = chrome.runtime.getManifest().version;
   const settings = await getSettings();
@@ -59,6 +138,7 @@ async function init() {
   renderSections(settings.destination);
   renderDrive();
   renderLocal();
+  renderHosts();
 }
 
 for (const input of document.querySelectorAll('input[name="destination"]')) {
