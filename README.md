@@ -100,6 +100,12 @@ Your designs, folders and custom shapes come back, on the same computer or a new
 
 ## Troubleshooting
 
+**"Automatic backup paused"**
+The last backup didn't finish, usually because Layerling ran out of memory with large or many designs. Automatic backup stays paused so it can't crash Layerling over and over. Click **Back up now** in the popup; once a backup succeeds, automatic backup turns back on. If it keeps failing, export your largest designs on their own (Export, LYL) and remove or simplify them in Layerling.
+
+**Automatic backup failed and didn't try again**
+After a failed automatic backup, the extension waits 3 hours before trying again on its own. **Back up now** works any time.
+
 **"Go to the Layerling start page to back up"**
 The editor is open. Go back to the start page and try again.
 

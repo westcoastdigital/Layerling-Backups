@@ -6,6 +6,19 @@
   const BACKUP_NAME = /^layerling-.*\.zip$/i;
   const originalClick = HTMLAnchorElement.prototype.click;
 
+  // Blobs Layerling turns into URLs while a capture is armed, so the click below can pass the Blob itself on.
+  const armedBlobs = new Map();
+  const originalCreateObjectURL = URL.createObjectURL;
+  URL.createObjectURL = function (object, ...rest) {
+    const url = originalCreateObjectURL.call(this, object, ...rest);
+    // Only ZIPs: thumbnails and other blobs made during the backup are not held on to.
+    if (object instanceof Blob && object.type === "application/zip" && document.documentElement.hasAttribute(ARM_ATTR)) {
+      armedBlobs.clear();
+      armedBlobs.set(url, object);
+    }
+    return url;
+  };
+
   // Layerling 1.15x+ asks for a save location with showSaveFilePicker in Chrome/Edge before falling back
   // to the <a download> click. While a capture is armed, refuse the picker (a non-Abort error makes
   // Layerling fall back to the download), so an auto backup never pops a Save dialog and the ZIP still
@@ -27,8 +40,10 @@
 
     root.removeAttribute(ARM_ATTR);
     const fileName = this.download;
-    fetch(this.href)
-      .then((response) => response.blob())
+    // Hand over Layerling's own Blob (a reference, no copy); fetching the URL is only the fallback.
+    const own = armedBlobs.get(this.href);
+    armedBlobs.clear();
+    (own ? Promise.resolve(own) : fetch(this.href).then((response) => response.blob()))
       .then((blob) => window.postMessage({ source: "llb-hook", type: "zip", fileName, blob }, location.origin))
       .catch((error) => window.postMessage({ source: "llb-hook", type: "error", message: String(error) }, location.origin));
   };

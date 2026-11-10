@@ -13,10 +13,15 @@ const SHAPES_BACKUP_FOLDER = "Custom shapes";
 const PROGRESS_KEY = "layerling.backupInProgress";
 const CHUNK_SIZE = 4 * 1024 * 1024;
 const AUTO_DELAY_MS = 2000;
-const IDLE_LIMIT_MS = 20000;
-const HARD_LIMIT_MS = 10 * 60 * 1000;
+// Before the first design and while custom shapes are read, Layerling writes no progress marker yet.
+const IDLE_LIMIT_MS = 90 * 1000;
+// Layerling rewrites its marker before each design; one design taking longer than this counts as stuck.
+const STUCK_LIMIT_MS = 15 * 60 * 1000;
+const HARD_LIMIT_MS = 60 * 60 * 1000;
+const BEAT_MS = 10 * 1000;
 
 let busy = false;
+let current = null; // { token, trigger } while this tab holds the backup lock
 let dashboardVisible = false;
 let autoTimer = null;
 let checkQueued = false;
@@ -146,13 +151,23 @@ function captureBackup() {
     }
 
     const started = Date.now();
-    let lastActivity = started;
+    let lastSeen = started; // last time Layerling's progress marker was there
+    let marker = null;
+    let markerChanged = started;
 
     const poll = setInterval(() => {
       const now = Date.now();
-      if (localStorage.getItem(PROGRESS_KEY)) lastActivity = now;
-      if (now - lastActivity > IDLE_LIMIT_MS) finish(new Error("Layerling produced no backup - there may be nothing to back up."));
-      else if (now - started > HARD_LIMIT_MS) finish(new Error("Layerling's backup took longer than 10 minutes."));
+      const progress = localStorage.getItem(PROGRESS_KEY);
+      if (progress) {
+        lastSeen = now;
+        if (progress !== marker) {
+          marker = progress;
+          markerChanged = now;
+        }
+      }
+      if (!progress && now - lastSeen > IDLE_LIMIT_MS) finish(new Error("Layerling produced no backup - there may be nothing to back up."));
+      else if (progress && now - markerChanged > STUCK_LIMIT_MS) finish(new Error("Layerling's backup stopped making progress on one design for 15 minutes."));
+      else if (now - started > HARD_LIMIT_MS) finish(new Error("Layerling's backup took longer than an hour."));
     }, 1000);
 
     function onMessage(event) {
@@ -184,22 +199,48 @@ function blobToBase64(blob) {
   });
 }
 
-async function sendToExtension(blob, signature, trigger, missing) {
+// Each chunk waits for the extension's "ack" before the next is read, so only one chunk is ever in flight.
+async function sendToExtension(blob, meta) {
   const port = chrome.runtime.connect({ name: "llb-upload" });
+  let waiting = null;
+  let closed = null;
   const result = new Promise((resolve, reject) => {
     port.onMessage.addListener((message) => {
+      if (message.type === "ack") {
+        waiting?.resolve();
+        return;
+      }
       if (message.type === "done") resolve(message.result);
       else if (message.type === "error") reject(new Error(message.message));
+      closed = new Error(message.message ?? "The backup ended.");
+      waiting?.reject(closed);
       port.disconnect();
     });
-    port.onDisconnect.addListener(() => reject(new Error("The extension stopped before the backup finished.")));
+    port.onDisconnect.addListener(() => {
+      closed ??= new Error("The extension stopped before the backup finished.");
+      waiting?.reject(closed);
+      reject(closed);
+    });
   });
+  result.catch(() => {});
+  const post = (message) => {
+    if (closed) throw closed;
+    const acked = new Promise((resolve, reject) => {
+      waiting = { resolve, reject };
+    });
+    port.postMessage(message);
+    return acked;
+  };
 
-  port.postMessage({ type: "start", size: blob.size, signature, trigger, missing, origin: location.origin });
-  for (let offset = 0; offset < blob.size; offset += CHUNK_SIZE) {
-    port.postMessage({ type: "chunk", data: await blobToBase64(blob.slice(offset, offset + CHUNK_SIZE)) });
+  try {
+    await post({ type: "start", size: blob.size, ...meta, origin: location.origin });
+    for (let offset = 0; offset < blob.size; offset += CHUNK_SIZE) {
+      await post({ type: "chunk", data: await blobToBase64(blob.slice(offset, offset + CHUNK_SIZE)) });
+    }
+    port.postMessage({ type: "end" });
+  } catch {
+    // The reason arrives through `result`.
   }
-  port.postMessage({ type: "end" });
   return result;
 }
 
@@ -212,23 +253,42 @@ async function runBackup(trigger) {
       throw new Error("Switch to the browser designs tab to back up. Designs on the server tab are already stored on the server.");
     }
     const { designs, shapes, signature } = await projectState();
-    if (trigger === "auto") {
-      const response = await chrome.runtime.sendMessage({ type: "auto-check", count: designs + shapes, signature, origin: location.origin });
-      const decision = response?.result;
-      if (!decision?.run) return { skipped: decision?.reason ?? "skipped" };
-    } else if (!designs && !shapes) {
-      throw new Error("No designs to back up yet.");
+    if (trigger !== "auto" && !designs && !shapes) throw new Error("No designs to back up yet.");
+    // Takes the extension-wide lock: one backup at a time across tabs, and the crash guard and back-off for auto.
+    const response = await chrome.runtime.sendMessage({ type: "begin", trigger, count: designs + shapes, signature, origin: location.origin });
+    if (!response?.ok) throw new Error(response?.error ?? "The extension did not answer.");
+    const decision = response.result;
+    if (!decision?.run) {
+      if (decision?.reason === "paused") showToast({ kind: "warn", title: "Automatic backup paused", detail: decision.message });
+      return { skipped: decision?.reason ?? "skipped" };
     }
-    const { blob } = await captureBackup();
-    const inZip = await countDesignsInZip(blob);
-    const missing = inZip === null ? 0 : Math.max(0, designs - inZip);
-    const result = await sendToExtension(blob, signature, trigger, missing);
+    current = { token: decision.token, trigger };
+    const beat = setInterval(() => chrome.runtime.sendMessage({ type: "beat", token: decision.token }).catch(() => {}), BEAT_MS);
+    let blob;
+    let missing = 0;
+    try {
+      ({ blob } = await captureBackup());
+      const inZip = await countDesignsInZip(blob);
+      missing = inZip === null ? 0 : Math.max(0, designs - inZip);
+    } catch (error) {
+      clearInterval(beat);
+      current = null;
+      chrome.runtime.sendMessage({ type: "finish", token: decision.token, trigger, origin: location.origin, message: error.message }).catch(() => {});
+      throw error;
+    }
+    let result;
+    try {
+      result = await sendToExtension(blob, { signature, trigger, missing, token: decision.token });
+    } finally {
+      clearInterval(beat);
+      current = null;
+      blob = null;
+    }
     showToast(result.warning
       ? { kind: "warn", title: "Backup saved with warnings", detail: result.warning }
       : { kind: "ok", title: "Backup successful", detail: result.location });
     return result;
   } catch (error) {
-    if (trigger === "auto") chrome.runtime.sendMessage({ type: "report-error", trigger, message: error.message }).catch(() => {});
     showToast({ kind: "error", title: "Backup failed", detail: error.message });
     throw error;
   } finally {
@@ -248,6 +308,11 @@ function checkDashboard() {
   if (!visible) clearTimeout(autoTimer);
   dashboardVisible = visible;
 }
+
+// Leaving or reloading the page mid-backup on purpose is not a crash: let the lock go without pausing auto backup.
+window.addEventListener("pagehide", () => {
+  if (current) chrome.runtime.sendMessage({ type: "finish", token: current.token, left: true }).catch(() => {});
+});
 
 new MutationObserver(() => {
   if (checkQueued) return;

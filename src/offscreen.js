@@ -10,15 +10,33 @@ function fail(message, code) {
   return error;
 }
 
-async function commit() {
+// The backup is written into the chosen folder chunk by chunk as it arrives, so it is never held in memory whole.
+// Without a usable folder the chunks are kept as Blob parts (which Chrome can page out) for the Downloads fallback,
+// and the reason is reported at commit, as before.
+async function begin(message) {
+  job = { fileName: message.fileName, keep: message.keep, parts: [], dir: null, writable: null, code: null };
   const dir = await getDirHandle();
-  if (!dir) throw fail("No backup folder chosen.", "no-folder");
-  if ((await dirPermission(dir)) !== "granted") throw fail("Folder access needs re-granting.", "permission");
+  if (!dir) job.code = "no-folder";
+  else if ((await dirPermission(dir)) !== "granted") job.code = "permission";
+  else {
+    job.dir = dir;
+    const file = await dir.getFileHandle(job.fileName, { create: true });
+    job.writable = await file.createWritable();
+  }
+}
 
-  const file = await dir.getFileHandle(job.fileName, { create: true });
-  const writable = await file.createWritable();
-  await writable.write(new Blob(job.parts, { type: "application/zip" }));
-  await writable.close();
+async function writeChunk(data) {
+  const bytes = base64ToBytes(data);
+  if (job.writable) await job.writable.write(bytes);
+  else job.parts.push(new Blob([bytes]));
+}
+
+async function commit() {
+  if (job.code === "no-folder") throw fail("No backup folder chosen.", "no-folder");
+  if (job.code === "permission") throw fail("Folder access needs re-granting.", "permission");
+  const { dir } = job;
+  await job.writable.close();
+  job.writable = null;
 
   let pruned = 0;
   if (job.keep > 0) {
@@ -35,13 +53,25 @@ async function commit() {
   return { folderName: dir.name, pruned };
 }
 
+/** Drops an unfinished file: the half-written data is discarded and the empty placeholder removed. */
+async function release() {
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
+  objectUrl = null;
+  if (job?.writable) {
+    await job.writable.abort().catch(() => {});
+    await job.dir.removeEntry(job.fileName).catch(() => {});
+  }
+  job = null;
+}
+
 async function handle(message) {
   switch (message.type) {
     case "begin":
-      job = { fileName: message.fileName, keep: message.keep, parts: [] };
+      await release();
+      await begin(message);
       return {};
     case "chunk":
-      job.parts.push(base64ToBytes(message.data));
+      await writeChunk(message.data);
       return {};
     case "commit":
       return commit();
@@ -49,9 +79,7 @@ async function handle(message) {
       objectUrl = URL.createObjectURL(new Blob(job.parts, { type: "application/zip" }));
       return { url: objectUrl };
     case "release":
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      objectUrl = null;
-      job = null;
+      await release();
       return {};
     default:
       throw new Error(`Unknown offscreen task: ${message.type}`);
